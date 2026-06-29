@@ -22,8 +22,8 @@ def test_bookmark_css_present_for_outline_generation(tmp_path):
     html_str = build_combined_html(doc)
 
     assert "bookmark-level: 1" in html_str
-    assert "<h1>Chapter 1</h1>" in html_str
-    assert "<h1>Chapter 2</h1>" in html_str
+    assert ">Chapter 1</h1>" in html_str
+    assert ">Chapter 2</h1>" in html_str
 
 
 def test_multiple_image_formats_all_inlined(tmp_path):

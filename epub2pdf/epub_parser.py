@@ -31,6 +31,7 @@ class EpubDocument:
     author: str
     language: str
     spine_html: List[Tuple[str, str]]  # (item_id, raw_xhtml)
+    spine_filenames: List[str]          # parallel list: filename for each spine item
     css_blobs: List[str]
     images: Dict[str, bytes]           # href (as stored in the epub) -> raw bytes
     toc: List[TocEntry]
@@ -67,6 +68,7 @@ def parse_epub(path: str) -> EpubDocument:
     language = languages[0][0] if languages else "en"
 
     spine_html: List[Tuple[str, str]] = []
+    spine_filenames: List[str] = []
     for item_id, _linear in book.spine:
         item = book.get_item_with_id(item_id)
         if item is None or item.get_type() != ebooklib.ITEM_DOCUMENT:
@@ -78,6 +80,7 @@ def parse_epub(path: str) -> EpubDocument:
             # (Caught by the fidelity test during development.)
             continue
         spine_html.append((item_id, item.get_content().decode("utf-8", errors="replace")))
+        spine_filenames.append(item.get_name())
 
     css_blobs: List[str] = [
         item.get_content().decode("utf-8", errors="replace")
@@ -102,6 +105,7 @@ def parse_epub(path: str) -> EpubDocument:
         author=author,
         language=language,
         spine_html=spine_html,
+        spine_filenames=spine_filenames,
         css_blobs=css_blobs,
         images=images,
         toc=toc,
