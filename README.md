@@ -44,11 +44,34 @@ pip install -r requirements.txt
 python3 -c "import weasyprint; print(weasyprint.__version__)"
 ```
 
-## Usage
+## Running it
+
+Make sure you're inside WSL2 with the virtual environment activated:
+
+```bash
+source .venv/bin/activate
+```
+
+Then convert any EPUB:
 
 ```bash
 python3 -m epub2pdf.cli convert book.epub -o book.pdf
 ```
+
+The tool will print progress and fidelity results:
+
+```
+Parsing book.epub ...
+Building combined HTML for 'Book Title' by Author ...
+Rendering PDF -> book.pdf (A4) ...
+Verifying fidelity ...
+  text similarity   : 0.9969
+  images   epub/pdf : 12/12
+  headings epub/pdf : 30/30
+Verification PASSED.
+```
+
+If verification fails, the specific check that failed is printed to stderr and the process exits with code 1 — no silent partial conversions.
 
 ### Options
 
@@ -96,6 +119,20 @@ Expected: 12/12 tests passing.
 - **DRM-protected EPUBs**: Will fail to parse — this tool does not attempt DRM removal.
 - **Embedded fonts**: Not currently carried through to the PDF. WeasyPrint would need explicit `@font-face` rules pointed at extracted font bytes.
 - **Internal cross-reference links**: Links between chapters render as visible text but are not rewritten as PDF internal links.
+
+## Bugs found and fixed
+
+These were real bugs caught during development and real-world testing, not hypothetical edge cases.
+
+**1. Nav-document leak** — The EPUB3 nav/TOC document is spine-listed by most generators. Including it as content leaked TOC link text into the body. Fixed by skipping `epub.EpubNav` items when walking the spine.
+
+**2. Fragment-parsing wrapper leak** — BeautifulSoup's `lxml` backend auto-wraps HTML fragments in `<html><body>` on parse. Re-parsing an already-extracted chapter fragment re-injected those wrapper tags into the combined document. Fixed by parsing fragments with `html.parser` instead.
+
+**3. False image-fidelity failures** — Comparing all image files bundled in the EPUB package against images found in the PDF produced false failures, because real EPUBs routinely ship orphan/unused image files (alternate cover sizes, unused art). Fixed by counting only images actually referenced by `<img>`/`<image>` tags in the spine content.
+
+**4. False structure-fidelity failures** — An EPUB TOC can contain pure grouping labels (`epub.Section`) with no `href` and no corresponding heading in the content. Counting every flattened TOC entry against PDF bookmarks produced false mismatches. Fixed by counting only TOC entries that have an `href`.
+
+**5. CSS-class-based heading EPUBs produced 0 PDF bookmarks** — Publisher EPUBs (tested against *Angels and Archangels* by Damien Echols) commonly use styled `<p class="h2chap">` / `<p class="h3a">` elements for headings instead of semantic `<h1>`/`<h2>` tags. The original bookmark CSS only fired on semantic heading tags, producing 0 outline entries against 95 expected. Fixed by resolving each TOC entry directly to its target DOM element — following fragment IDs to the parent of empty `<a>` anchors, using heading-class name heuristics for whole-doc entries, and injecting synthetic zero-height headings for image-only pages such as covers. Result on the test book: text=0.9969, images=118/118, headings=95/95, Verification PASSED.
 
 ## License
 
